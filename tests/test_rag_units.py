@@ -102,3 +102,31 @@ def test_vector_store_rejects_non_positive_top_k(top_k: int) -> None:
 
     with pytest.raises(ValueError):
         store.search([1.0, 0.0], top_k=top_k)
+
+
+from app.rag.llm import MockAnswerGenerator
+from app.rag.service import RagService
+
+
+def test_rag_service_ingests_document_and_answers_from_sources() -> None:
+    service = RagService()
+
+    result = service.ingest_document(
+        text="FastAPI is a Python framework for building APIs. RAG retrieves relevant context.",
+        metadata={"title": "Learning notes"},
+    )
+    answer = service.answer_question("What builds Python APIs?", top_k=2)
+
+    assert result.chunks_added > 0
+    assert answer.sources
+    assert "FastAPI" in answer.answer
+    assert answer.sources[0].metadata["title"] == "Learning notes"
+
+
+def test_rag_service_handles_ask_before_ingest() -> None:
+    service = RagService(answer_generator=MockAnswerGenerator())
+
+    answer = service.answer_question("What is FastAPI?", top_k=3)
+
+    assert answer.answer == "No documents have been indexed yet."
+    assert answer.sources == []
