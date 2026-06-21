@@ -1,5 +1,10 @@
 from fastapi.testclient import TestClient
 
+from pathlib import Path
+
+from app.main import create_app
+from app.settings import Settings
+
 
 def test_document_text_must_not_be_empty(client: TestClient) -> None:
     response = client.post("/documents", json={"text": "", "metadata": {}})
@@ -61,3 +66,30 @@ def test_ingest_then_ask_returns_answer_and_sources(client: TestClient) -> None:
     assert "FastAPI" in ask_body["answer"]
     assert len(ask_body["sources"]) >= 1
     assert ask_body["sources"][0]["metadata"]["title"] == "Learning notes"
+    
+def test_ingested_document_persists_across_app_instances(tmp_path: Path) -> None:
+    db_path = tmp_path / "rag.db"
+    first_app = create_app(Settings(openai_api_key=None, sqlite_path=str(db_path)))
+
+    with TestClient(first_app) as client:
+        document_response = client.post(
+            "/documents",
+            json={
+                "text": "SQLite keeps RAG chunks after the FastAPI app restarts.",
+                "metadata": {"title": "SQLite notes"},
+            },
+        )
+
+    assert document_response.status_code == 200
+
+    second_app = create_app(Settings(openai_api_key=None, sqlite_path=str(db_path)))
+    with TestClient(second_app) as client:
+        ask_response = client.post(
+            "/ask",
+            json={"question": "What keeps RAG chunks after restart?", "top_k": 1},
+        )
+
+    assert ask_response.status_code == 200
+    body = ask_response.json()
+    assert "SQLite" in body["answer"]
+    assert body["sources"][0]["metadata"]["title"] == "SQLite notes"

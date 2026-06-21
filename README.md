@@ -2,17 +2,17 @@
 
 This project is a step-by-step FastAPI + RAG learning app.
 
-The first milestone demonstrates the full loop:
+The current milestone demonstrates the full loop:
 
 1. Submit text to the API.
 2. Split text into chunks.
 3. Embed chunks.
-4. Store chunks in an in-memory vector store.
+4. Store chunks in a SQLite vector store.
 5. Ask a question.
 6. Retrieve relevant chunks.
 7. Generate an answer from retrieved context.
 
-By default the app uses mock providers, so it runs without external services.
+By default the app uses mock providers and stores chunks in local SQLite, so it runs without external services and keeps indexed chunks after a restart.
 
 If `OPENAI_API_KEY` is set, the app uses OpenAI embeddings and chat generation.
 
@@ -57,6 +57,17 @@ Interactive API docs:
 http://127.0.0.1:8001/docs
 ```
 
+## SQLite Storage
+
+The default database path is:
+
+```text
+data/rag.db
+```
+
+The app creates this file automatically the first time you add a document.
+The `data/` directory is ignored by git because it is local runtime state.
+
 ## Try It With Curl
 
 Health check:
@@ -87,15 +98,15 @@ curl -X POST http://127.0.0.1:8001/ask \
   }'
 ```
 
+To verify persistence, stop the server, start it again, and run the same `/ask` request.
+The source should still be available because the chunk was stored in SQLite.
+
 ## Current Limits
 
-- The vector store is in memory.
-- Data disappears when the server restarts.
 - The default embedding provider is a mock implementation.
 - The default answer generator is a mock implementation.
 - File uploads are not included yet.
 - Streaming responses are not included yet.
-- Persistent storage is not included yet.
 - User accounts are not included yet.
 
 ## Project Structure
@@ -130,12 +141,12 @@ POST /documents
 -> validate request with Pydantic
 -> split text into chunks
 -> embed each chunk
--> store chunks in memory
+-> store chunks in SQLite
 
 POST /ask
 -> validate request with Pydantic
 -> embed the question
--> search similar chunks
+-> search similar chunks from SQLite
 -> generate a mock answer from retrieved context
 -> return answer and sources
 ```
