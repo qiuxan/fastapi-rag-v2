@@ -5,7 +5,7 @@ from uuid import uuid4
 from app.rag.chunking import split_text
 from app.rag.embeddings import EmbeddingProvider, MockEmbeddingProvider
 from app.rag.llm import AnswerGenerator, MockAnswerGenerator
-from app.rag.vector_store import ChunkRecord, InMemoryVectorStore
+from app.rag.vector_store import ChunkRecord, InMemoryVectorStore, SQLiteVectorStore
 
 
 @dataclass(frozen=True)
@@ -32,7 +32,7 @@ class RagService:
         self,
         embedding_provider: EmbeddingProvider | None = None,
         answer_generator: AnswerGenerator | None = None,
-        vector_store: InMemoryVectorStore | None = None,
+        vector_store: InMemoryVectorStore | SQLiteVectorStore | None = None,
     ) -> None:
         self.embedding_provider = (
             embedding_provider if embedding_provider is not None else MockEmbeddingProvider()

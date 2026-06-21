@@ -2,7 +2,7 @@ from app.main import build_rag_service, create_app
 from app.rag.embeddings import MockEmbeddingProvider, OpenAIEmbeddingProvider
 from app.rag.llm import MockAnswerGenerator, OpenAIAnswerGenerator
 from app.settings import Settings
-
+from app.rag.vector_store import SQLiteVectorStore
 
 def test_settings_default_to_mock_mode() -> None:
     settings = Settings(openai_api_key=None)
@@ -36,3 +36,16 @@ def test_create_app_stores_rag_service() -> None:
     app = create_app(Settings(openai_api_key=None))
 
     assert hasattr(app.state, "rag_service")
+
+def test_settings_default_sqlite_path() -> None:
+    settings = Settings(openai_api_key=None)
+
+    assert settings.sqlite_path == "data/rag.db"
+
+
+def test_build_rag_service_uses_sqlite_store_by_default(tmp_path) -> None:
+    service = build_rag_service(
+        Settings(openai_api_key=None, sqlite_path=str(tmp_path / "rag.db"))
+    )
+
+    assert isinstance(service.vector_store, SQLiteVectorStore)

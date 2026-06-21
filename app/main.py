@@ -5,7 +5,7 @@ from app.rag.embeddings import MockEmbeddingProvider, OpenAIEmbeddingProvider
 from app.rag.llm import MockAnswerGenerator, OpenAIAnswerGenerator
 from app.rag.service import RagService
 from app.settings import Settings
-
+from app.rag.vector_store import SQLiteVectorStore
 
 def build_rag_service(settings: Settings) -> RagService:
     if settings.use_openai:
@@ -18,11 +18,14 @@ def build_rag_service(settings: Settings) -> RagService:
                 model=settings.openai_chat_model,
                 api_key=settings.openai_api_key,
             ),
+            vector_store=SQLiteVectorStore(settings.sqlite_path)
+
         )
 
     return RagService(
         embedding_provider=MockEmbeddingProvider(),
         answer_generator=MockAnswerGenerator(),
+        vector_store=SQLiteVectorStore(settings.sqlite_path),
     )
 
 
