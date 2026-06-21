@@ -21,8 +21,17 @@ class MockAnswerGenerator:
 
 
 class OpenAIAnswerGenerator:
-    def __init__(self, model: str = "gpt-4.1-mini", api_key: str | None = None) -> None:
+    def __init__(
+        self,
+        model: str = "gpt-4.1-mini",
+        api_key: str | None = None,
+        client: object | None = None,
+    ) -> None:
         self.model = model
+        if client is not None:
+            self.client = client
+            return
+
         resolved_api_key = api_key if api_key is not None else os.getenv("OPENAI_API_KEY")
         self.client = OpenAI(api_key=resolved_api_key)
 
