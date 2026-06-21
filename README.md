@@ -68,6 +68,34 @@ data/rag.db
 The app creates this file automatically the first time you add a document.
 The `data/` directory is ignored by git because it is local runtime state.
 
+## OpenAI Mode
+
+Mock mode is the default. It does not call external services and does not spend API credits.
+
+To enable real OpenAI embeddings and answer generation, create a local `.env` file:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` and set:
+
+```text
+OPENAI_API_KEY=your-api-key-here
+```
+
+Do not commit `.env`. It is ignored by git.
+
+With `OPENAI_API_KEY` set:
+
+- `/documents` uses `OpenAIEmbeddingProvider`.
+- `/ask` uses `OpenAIAnswerGenerator`.
+- chunks are still stored in local SQLite.
+- API calls can spend OpenAI credits.
+
+If you change `OPENAI_EMBEDDING_MODEL` after indexing documents, clear `data/rag.db`.
+Different embedding models can produce vectors with different dimensions, and mixed dimensions cannot be compared.
+
 ## Try It With Curl
 
 Health check:
@@ -101,10 +129,43 @@ curl -X POST http://127.0.0.1:8001/ask \
 To verify persistence, stop the server, start it again, and run the same `/ask` request.
 The source should still be available because the chunk was stored in SQLite.
 
+### Live OpenAI Check
+
+Only run this after setting `OPENAI_API_KEY` in `.env`.
+
+Start the API:
+
+```bash
+python -m uvicorn app.main:app --reload --port 8001
+```
+
+Add a document:
+
+```bash
+curl -X POST http://127.0.0.1:8001/documents \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "FastAPI is a Python framework for building APIs. RAG retrieves context before answering.",
+    "metadata": {"title": "OpenAI live test"}
+  }'
+```
+
+Ask a question:
+
+```bash
+curl -X POST http://127.0.0.1:8001/ask \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "What framework builds Python APIs?",
+    "top_k": 2
+  }'
+```
+
+In OpenAI mode, the answer should not start with `Mock answer based on retrieved context`.
+
 ## Current Limits
 
-- The default embedding provider is a mock implementation.
-- The default answer generator is a mock implementation.
+- Mock mode is intentionally simple and deterministic.
 - File uploads are not included yet.
 - Streaming responses are not included yet.
 - User accounts are not included yet.
@@ -147,6 +208,6 @@ POST /ask
 -> validate request with Pydantic
 -> embed the question
 -> search similar chunks from SQLite
--> generate a mock answer from retrieved context
+-> generate an answer from retrieved context
 -> return answer and sources
 ```
