@@ -2,8 +2,7 @@ import pytest
 
 from app.rag.chunking import split_text
 from app.rag.embeddings import MockEmbeddingProvider
-from app.rag.vector_store import ChunkRecord, InMemoryVectorStore, cosine_similarity
-
+from app.rag.vector_store import ChunkRecord, InMemoryVectorStore, SQLiteVectorStore, cosine_similarity
 
 def test_split_text_creates_trimmed_chunks() -> None:
     text = "FastAPI helps build APIs. RAG retrieves context before answering."
@@ -130,3 +129,83 @@ def test_rag_service_handles_ask_before_ingest() -> None:
 
     assert answer.answer == "No documents have been indexed yet."
     assert answer.sources == []
+
+def test_sqlite_vector_store_returns_most_similar_chunks(tmp_path) -> None:
+    store = SQLiteVectorStore(tmp_path / "rag.db")
+    fastapi = ChunkRecord(
+        document_id="doc-1",
+        chunk_id="doc-1-chunk-0",
+        text="FastAPI builds Python APIs.",
+        embedding=[1.0, 0.0],
+        metadata={"title": "FastAPI"},
+    )
+    rag = ChunkRecord(
+        document_id="doc-2",
+        chunk_id="doc-2-chunk-0",
+        text="RAG retrieves context.",
+        embedding=[0.0, 1.0],
+        metadata={"title": "RAG"},
+    )
+
+    store.add_many([fastapi, rag])
+    results = store.search([1.0, 0.0], top_k=1)
+
+    assert len(results) == 1
+    assert results[0].record.text == "FastAPI builds Python APIs."
+    assert results[0].record.metadata == {"title": "FastAPI"}
+    assert results[0].score == 1.0
+
+
+def test_sqlite_vector_store_orders_results_by_descending_similarity(tmp_path) -> None:
+    store = SQLiteVectorStore(tmp_path / "rag.db")
+    low = ChunkRecord(
+        document_id="doc-1",
+        chunk_id="doc-1-chunk-0",
+        text="Less relevant.",
+        embedding=[0.0, 1.0],
+        metadata={},
+    )
+    high = ChunkRecord(
+        document_id="doc-2",
+        chunk_id="doc-2-chunk-0",
+        text="More relevant.",
+        embedding=[1.0, 0.0],
+        metadata={},
+    )
+
+    store.add_many([low, high])
+    results = store.search([1.0, 0.0], top_k=2)
+
+    assert [result.record.text for result in results] == ["More relevant.", "Less relevant."]
+    assert [result.score for result in results] == [1.0, 0.0]
+
+
+@pytest.mark.parametrize("top_k", [0, -1])
+def test_sqlite_vector_store_rejects_non_positive_top_k(tmp_path, top_k: int) -> None:
+    store = SQLiteVectorStore(tmp_path / "rag.db")
+
+    with pytest.raises(ValueError):
+        store.search([1.0, 0.0], top_k=top_k)
+
+
+def test_sqlite_vector_store_persists_across_instances(tmp_path) -> None:
+    db_path = tmp_path / "rag.db"
+    first_store = SQLiteVectorStore(db_path)
+    first_store.add_many(
+        [
+            ChunkRecord(
+                document_id="doc-1",
+                chunk_id="doc-1-chunk-0",
+                text="FastAPI survives restarts with SQLite.",
+                embedding=[1.0, 0.0],
+                metadata={"title": "Persistence"},
+            )
+        ]
+    )
+
+    second_store = SQLiteVectorStore(db_path)
+    results = second_store.search([1.0, 0.0], top_k=1)
+
+    assert len(results) == 1
+    assert results[0].record.text == "FastAPI survives restarts with SQLite."
+    assert results[0].record.metadata["title"] == "Persistence"
