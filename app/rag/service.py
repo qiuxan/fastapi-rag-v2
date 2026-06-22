@@ -7,6 +7,8 @@ from app.rag.embeddings import EmbeddingProvider, MockEmbeddingProvider
 from app.rag.llm import AnswerGenerator, MockAnswerGenerator
 from app.rag.vector_store import ChunkRecord, InMemoryVectorStore, SQLiteVectorStore
 
+DEFAULT_MIN_SCORE = 0.2
+
 
 @dataclass(frozen=True)
 class IngestResult:
@@ -33,12 +35,14 @@ class RagService:
         embedding_provider: EmbeddingProvider | None = None,
         answer_generator: AnswerGenerator | None = None,
         vector_store: InMemoryVectorStore | SQLiteVectorStore | None = None,
+        min_score: float = DEFAULT_MIN_SCORE,
     ) -> None:
         self.embedding_provider = (
             embedding_provider if embedding_provider is not None else MockEmbeddingProvider()
         )
         self.answer_generator = answer_generator if answer_generator is not None else MockAnswerGenerator()
         self.vector_store = vector_store if vector_store is not None else InMemoryVectorStore()
+        self.min_score = min_score
 
     def ingest_document(self, text: str, metadata: dict[str, Any]) -> IngestResult:
         document_id = str(uuid4())
@@ -59,13 +63,14 @@ class RagService:
     def answer_question(self, question: str, top_k: int) -> AnswerResult:
         query_embedding = self.embedding_provider.embed(question)
         results = self.vector_store.search(query_embedding, top_k=top_k)
-        answer = self.answer_generator.generate(question, results)
+        filtered_results = [result for result in results if result.score >= self.min_score]
+        answer = self.answer_generator.generate(question, filtered_results)
         sources = [
             AnswerSource(
                 text=result.record.text,
                 score=result.score,
                 metadata=dict(result.record.metadata),
             )
-            for result in results
+            for result in filtered_results
         ]
         return AnswerResult(answer=answer, sources=sources)

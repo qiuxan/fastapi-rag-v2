@@ -209,3 +209,23 @@ def test_sqlite_vector_store_persists_across_instances(tmp_path) -> None:
     assert len(results) == 1
     assert results[0].record.text == "FastAPI survives restarts with SQLite."
     assert results[0].record.metadata["title"] == "Persistence"
+
+
+def test_rag_service_filters_sources_below_min_score() -> None:
+    service = RagService(min_score=0.2)
+    service.vector_store.add_many(
+        [
+            ChunkRecord(
+                document_id="doc-1",
+                chunk_id="doc-1-chunk-0",
+                text="Very low relevance.",
+                embedding=[0.0] * 16,
+                metadata={"title": "Low"},
+            )
+        ]
+    )
+
+    answer = service.answer_question("FastAPI", top_k=1)
+
+    assert answer.answer == "No documents have been indexed yet."
+    assert answer.sources == []
