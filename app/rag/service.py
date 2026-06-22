@@ -64,6 +64,10 @@ class RagService:
         query_embedding = self.embedding_provider.embed(question)
         results = self.vector_store.search(query_embedding, top_k=top_k)
         filtered_results = [result for result in results if result.score >= self.min_score]
+
+        if results and not filtered_results:
+            return AnswerResult(answer="I don't know.", sources=[])
+
         answer = self.answer_generator.generate(question, filtered_results)
         sources = [
             AnswerSource(

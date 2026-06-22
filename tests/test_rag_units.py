@@ -227,5 +227,24 @@ def test_rag_service_filters_sources_below_min_score() -> None:
 
     answer = service.answer_question("FastAPI", top_k=1)
 
-    assert answer.answer == "No documents have been indexed yet."
+    assert answer.sources == []
+
+
+def test_rag_service_returns_i_do_not_know_when_matches_are_below_min_score() -> None:
+    service = RagService(min_score=0.2)
+    service.vector_store.add_many(
+        [
+            ChunkRecord(
+                document_id="doc-1",
+                chunk_id="doc-1-chunk-0",
+                text="Unrelated low score content.",
+                embedding=[0.0] * 16,
+                metadata={"title": "Low"},
+            )
+        ]
+    )
+
+    answer = service.answer_question("FastAPI", top_k=1)
+
+    assert answer.answer == "I don't know."
     assert answer.sources == []
