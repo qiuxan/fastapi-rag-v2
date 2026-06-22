@@ -5,6 +5,18 @@ from openai import OpenAI
 
 from app.rag.vector_store import SearchResult
 
+IAN_RESUME_SYSTEM_PROMPT = (
+    "You are an assistant that answers questions only about Ian Qiu's resume. "
+    "Answer only questions related to Ian Qiu's resume, work experience, projects, "
+    "skills, education, or background. "
+    "Use only the provided context. "
+    "If the question is not about Ian Qiu's resume, answer: \"I don't know.\" "
+    "If the provided context does not contain the answer, answer: \"I don't know.\" "
+    "Do not invent facts. "
+    "Keep the answer under 500 Chinese characters or 500 English words. "
+    "The answer must be one complete sentence."
+)
+
 
 class AnswerGenerator(Protocol):
     def generate(self, question: str, sources: list[SearchResult]) -> str:
@@ -45,7 +57,7 @@ class OpenAIAnswerGenerator:
             messages=[
                 {
                     "role": "system",
-                    "content": "Answer using only the provided context. If the context is insufficient, say so.",
+                    "content": IAN_RESUME_SYSTEM_PROMPT,
                 },
                 {
                     "role": "user",

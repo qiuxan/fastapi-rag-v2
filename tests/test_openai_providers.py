@@ -88,3 +88,30 @@ def test_openai_answer_generator_sends_context_and_question_to_client() -> None:
     assert messages[1]["role"] == "user"
     assert "FastAPI builds Python APIs." in messages[1]["content"]
     assert "What builds Python APIs?" in messages[1]["content"]
+
+def test_openai_answer_generator_system_prompt_restricts_answers_to_ian_resume() -> None:
+    client = FakeChatClient()
+    generator = OpenAIAnswerGenerator(model="chat-model", client=client)
+    source = SearchResult(
+        record=ChunkRecord(
+            document_id="doc-1",
+            chunk_id="doc-1-chunk-0",
+            text="Ian Qiu has FastAPI and RAG project experience.",
+            embedding=[1.0, 0.0],
+            metadata={"title": "Ian Qiu resume"},
+        ),
+        score=1.0,
+    )
+
+    generator.generate("What is Ian experienced in?", [source])
+
+    messages = client.chat.completions.calls[0]["messages"]
+    system_prompt = messages[0]["content"]
+
+    assert "Ian Qiu" in system_prompt
+    assert "resume" in system_prompt
+    assert "Use only the provided context" in system_prompt
+    assert "I don't know" in system_prompt
+    assert "Do not invent facts" in system_prompt
+    assert "500" in system_prompt
+    assert "one complete sentence" in system_prompt
