@@ -2,6 +2,8 @@ from pathlib import Path
 
 from app.rag.ingest_folder import ingest_folder, is_supported_file
 from app.rag.service import RagService
+from app.scripts.ingest_folder import main
+
 
 
 def test_is_supported_file_accepts_text_and_markdown() -> None:
@@ -62,3 +64,23 @@ def test_ingest_folder_reports_no_supported_files(tmp_path) -> None:
     assert result.files_ingested == 0
     assert result.files_skipped == 1
     assert result.chunks_added == 0
+
+def test_ingest_folder_cli_returns_error_for_missing_folder(tmp_path, capsys) -> None:
+    missing = tmp_path / "missing"
+
+    exit_code = main([str(missing)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "does not exist" in captured.err
+
+
+def test_ingest_folder_cli_returns_error_for_file_path(tmp_path, capsys) -> None:
+    file_path = tmp_path / "notes.md"
+    file_path.write_text("FastAPI notes", encoding="utf-8")
+
+    exit_code = main([str(file_path)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "not a directory" in captured.err
