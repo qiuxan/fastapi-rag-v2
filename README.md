@@ -96,6 +96,45 @@ With `OPENAI_API_KEY` set:
 If you change `OPENAI_EMBEDDING_MODEL` after indexing documents, clear `data/rag.db`.
 Different embedding models can produce vectors with different dimensions, and mixed dimensions cannot be compared.
 
+## Ingest A Knowledge Base Folder
+
+Create a local folder with text or Markdown files:
+
+```text
+knowledge_base/
+  fastapi-notes.md
+  rag-notes.txt
+  project-faq.markdown
+```
+
+Supported file types:
+
+- `.txt`
+- `.md`
+- `.markdown`
+
+Ingest the folder:
+
+```bash
+python -m app.scripts.ingest_folder knowledge_base
+```
+
+The script reads supported files recursively and stores chunks in SQLite.
+Each source includes metadata:
+
+- `source`
+- `filename`
+- `extension`
+
+If `.env` has `OPENAI_API_KEY`, ingestion uses real OpenAI embeddings.
+If not, ingestion uses mock embeddings.
+
+When switching between mock and OpenAI embeddings, clear the local SQLite database first:
+
+```bash
+rm -f data/rag.db data/rag.db-shm data/rag.db-wal
+```
+
 ## Try It With Curl
 
 Health check:
@@ -180,14 +219,19 @@ app/
   rag/
     chunking.py
     embeddings.py
+    ingest_folder.py
     llm.py
     service.py
     vector_store.py
+  scripts/
+    ingest_folder.py
   schemas.py
   settings.py
 tests/
   conftest.py
   test_health.py
+  test_ingest_folder.py
+  test_openai_providers.py
   test_rag_flow.py
   test_rag_units.py
   test_settings.py
@@ -210,4 +254,10 @@ POST /ask
 -> search similar chunks from SQLite
 -> generate an answer from retrieved context
 -> return answer and sources
+
+python -m app.scripts.ingest_folder knowledge_base
+-> read supported files recursively
+-> attach source metadata
+-> reuse RagService.ingest_document()
+-> store chunks in SQLite
 ```
